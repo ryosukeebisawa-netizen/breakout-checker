@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新高値ブレイク・プロトレーダー</title>
+    <style>
+        :root {
+            --primary: #1a2a6c;
+            --accent: #f24a4a;
+            --growth: #00c853;
+            --bg: #f4f7f6;
+            --kabutan: #0066cc;
+            --minkabu: #ff9900;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            margin: 0; padding: 20px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .container { width: 100%; max-width: 500px; }
+        .header { text-align: center; margin-bottom: 15px; }
+        .header h1 { color: var(--primary); font-size: 1.6rem; margin: 0; }
+        
+        .time-container {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #fff; padding: 10px 15px; border-radius: 10px;
+            margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .update-time { font-size: 0.8rem; color: #555; font-weight: bold; }
+        .refresh-btn {
+            background: var(--primary); color: white; border: none;
+            padding: 6px 12px; border-radius: 6px; font-size: 0.8rem;
+            font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+
+        .tabs {
+            display: flex; justify-content: space-between; margin-bottom: 15px;
+            background: #e0e0e0; padding: 5px; border-radius: 10px;
+        }
+        .tab-btn {
+            flex: 1; background: none; border: none; padding: 10px;
+            font-size: 0.9rem; font-weight: bold; color: #666;
+            cursor: pointer; border-radius: 8px; transition: 0.3s;
+        }
+        .tab-btn.active {
+            background: white; color: var(--primary);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        }
+
+        .stock-card {
+            background: white; border-radius: 16px; padding: 20px;
+            margin-top: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border-top: 6px solid var(--accent); position: relative;
+        }
+        .rank-badge {
+            position: absolute; top: -12px; left: 15px;
+            background: var(--primary); color: white;
+            padding: 2px 10px; border-radius: 10px; font-size: 0.8rem; font-weight: bold;
+        }
+        .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; margin-top: 5px; }
+        .code-name { font-weight: 800; font-size: 1.2rem; color: var(--primary); }
+        .price { font-size: 1.4rem; font-weight: bold; color: var(--accent); }
+        
+        .metrics-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+            padding-top: 15px; border-top: 1px solid #eee; margin-bottom: 15px;
+        }
+        .metric { display: flex; flex-direction: column; }
+        .m-label { font-size: 0.75rem; color: #777; margin-bottom: 4px; }
+        .m-value { font-size: 1rem; font-weight: bold; color: #333; }
+        .highlight { color: var(--growth); }
+        
+        .badge {
+            display: inline-block; padding: 4px 10px; border-radius: 20px;
+            font-size: 0.7rem; font-weight: bold; margin-bottom: 8px;
+        }
+        .badge-ytd { background: #e3f2fd; color: #1976d2; }
+        .badge-ath { background: #fff3e0; color: #ef6c00; }
+
+        /* ★外部リンクボタンのスタイル */
+        .link-container {
+            display: flex; gap: 10px; margin-top: 10px;
+            padding-top: 12px; border-top: 1px dashed #ddd;
+        }
+        .source-link {
+            flex: 1; text-align: center; text-decoration: none;
+            font-size: 0.8rem; font-weight: bold; padding: 8px;
+            border-radius: 8px; transition: 0.2s;
+        }
+        .link-kabutan { background-color: #e6f0fa; color: var(--kabutan); border: 1px solid #b3d1f2; }
+        .link-kabutan:hover { background-color: #d0e4f7; }
+        .link-minkabu { background-color: #fff5e6; color: var(--minkabu); border: 1px solid #ffe0b3; }
+        .link-minkabu:hover { background-color: #ffebd0; }
+
+        .no-data {
+            background: white; border-radius: 16px; padding: 40px 20px;
+            text-align: center; margin-top: 15px; color: #777; font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>🚀 Breakout Checker</h1>
+        <p>高値の種類で市場の熱量を分析</p>
+    </div>
+
+    <div class="time-container">
+        <div class="update-time" id="timeDisplay">取得中...</div>
+        <button class="refresh-btn" onclick="refreshData()">🔄 更新</button>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" id="tab-ytd" onclick="switchTab('年初来高値')">📅 年初来高値</button>
+        <button class="tab-btn" id="tab-ath" onclick="switchTab('上場来高値')">🏆 上場来高値</button>
+    </div>
+
+    <div id="resultArea"></div>
+</div>
+
+<script>
+    let currentHighType = '年初来高値';
+
+    let masterData = [
+        { code: '7267', name: '本田技研工業', price: '1,850', volNum: 320, volRatio: '320%', eps: '+25.4%', sales: '+12.8%', type: '年初来高値' },
+        { code: '4661', name: 'オリエンタルランド', price: '5,420', volNum: 450, volRatio: '450%', eps: '+42.1%', sales: '+21.5%', type: '上場来高値' },
+        { code: '8306', name: '三菱UFJ FG', price: '1,650', volNum: 280, volRatio: '280%', eps: '+15.2%', sales: '+8.3%', type: '年初来高値' },
+        { code: '8058', name: '三菱商事', price: '3,520', volNum: 180, volRatio: '180%', eps: '+20.5%', sales: '+10.2%', type: '上場来高値' }
+    ];
+
+    window.onload = function() {
+        updateTimestamp();
+        renderData();
+    };
+
+    function refreshData() {
+        const area = document.getElementById('resultArea');
+        area.innerHTML = '<p style="text-align:center; margin-top:40px; color:#666;">市場データをスキャン中...</p>';
+        setTimeout(() => {
+            updateTimestamp();
+            renderData();
+        }, 600);
+    }
+
+    function updateTimestamp() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const date = now.getDate();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        document.getElementById('timeDisplay').innerText = `⏱ ${year}年${month}月${date}日 ${hours}時${minutes}分 現在`;
+    }
+
+    function switchTab(highType) {
+        currentHighType = highType;
+        document.getElementById('tab-ytd').classList.toggle('active', highType === '年初来高値');
+        document.getElementById('tab-ath').classList.toggle('active', highType === '上場来高値');
+        renderData();
+    }
+
+    function renderData() {
+        const area = document.getElementById('resultArea');
+        area.innerHTML = '';
+
+        let filteredData = masterData.filter(stock => stock.type === currentHighType);
+        filteredData.sort((a, b) => b.volNum - a.volNum);
+
+        if (filteredData.length === 0) {
+            area.innerHTML = `
+                <div class="no-data">
+                    <span style="font-size:2rem; display:block; margin-bottom:10px;">📉</span>
+                    該当する${currentHighType}銘柄なし
+                </div>
+            `;
+            return;
+        }
+
+        filteredData.forEach((stock, index) => {
+            const card = document.createElement('div');
+            card.className = 'stock-card';
+            const badgeClass = stock.type === '年初来高値' ? 'badge-ytd' : 'badge-ath';
+            
+            // ★それぞれのサイトのURLを自動生成（target="_blank" で新しいタブで開くようにしています）
+            const kabutanUrl = `https://kabutan.jp/stock/?code=${stock.code}`;
+            const minkabuUrl = `https://minkabu.jp/stock/${stock.code}`;
+
+            card.innerHTML = `
+                <div class="rank-badge">第 ${index + 1} 位</div>
+                <div class="card-top">
+                    <div>
+                        <span class="badge ${badgeClass}">${stock.type}</span>
+                        <div class="code-name">${stock.code} ${stock.name}</div>
+                    </div>
+                    <div class="price">¥${stock.price}</div>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric">
+                        <span class="m-label">出来高変化率</span>
+                        <span class="m-value highlight">${stock.volRatio}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="m-label">直近EPS成長</span>
+                        <span class="m-value">${stock.eps}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="m-label">売上高成長</span>
+                        <span class="m-value">${stock.sales}</span>
+                    </div>
+                </div>
+                <div class="link-container">
+                    <a href="${kabutanUrl}" target="_blank" class="source-link link-kabutan">📊 株探</a>
+                    <a href="${minkabuUrl}" target="_blank" class="source-link link-minkabu">👥 みん株</a>
+                </div>
+            `;
+            area.appendChild(card);
+        });
+    }
+</script>
+</body>
+</html>
