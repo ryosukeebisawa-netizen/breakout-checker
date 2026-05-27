@@ -79,7 +79,6 @@
         .badge-ytd { background: #e3f2fd; color: #1976d2; }
         .badge-ath { background: #fff3e0; color: #ef6c00; }
 
-        /* ★外部リンクボタンのスタイル */
         .link-container {
             display: flex; gap: 10px; margin-top: 10px;
             padding-top: 12px; border-top: 1px dashed #ddd;
@@ -124,26 +123,33 @@
 
 <script>
     let currentHighType = '年初来高値';
-
-    let masterData = [
-        { code: '7267', name: '本田技研工業', price: '1,850', volNum: 320, volRatio: '320%', eps: '+25.4%', sales: '+12.8%', type: '年初来高値' },
-        { code: '4661', name: 'オリエンタルランド', price: '5,420', volNum: 450, volRatio: '450%', eps: '+42.1%', sales: '+21.5%', type: '上場来高値' },
-        { code: '8306', name: '三菱UFJ FG', price: '1,650', volNum: 280, volRatio: '280%', eps: '+15.2%', sales: '+8.3%', type: '年初来高値' },
-        { code: '8058', name: '三菱商事', price: '3,520', volNum: 180, volRatio: '180%', eps: '+20.5%', sales: '+10.2%', type: '上場来高値' }
-    ];
+    let currentStockData = []; 
 
     window.onload = function() {
-        updateTimestamp();
-        renderData();
+        refreshData();
     };
 
-    function refreshData() {
+    // Vercel経由で本物のJ-Quantsデータを呼び出す処理
+    async function refreshData() {
         const area = document.getElementById('resultArea');
-        area.innerHTML = '<p style="text-align:center; margin-top:40px; color:#666;">市場データをスキャン中...</p>';
-        setTimeout(() => {
+        area.innerHTML = '<p style="text-align:center; margin-top:40px; color:#666;">東証から最新データをリアルタイム取得中...</p>';
+        
+        try {
+            const response = await fetch('/api/scan');
+            const result = await response.json();
+            
+            if (result.error) {
+                area.innerHTML = `<div class="no-data">データ取得に失敗しました<br><span style="font-size:0.8rem; color:red;">${result.error}</span></div>`;
+                return;
+            }
+
+            currentStockData = result.data || [];
             updateTimestamp();
             renderData();
-        }, 600);
+
+        } catch (error) {
+            area.innerHTML = '<div class="no-data">通信エラーが発生しました。時間を置いて再度お試しください。</div>';
+        }
     }
 
     function updateTimestamp() {
@@ -167,7 +173,7 @@
         const area = document.getElementById('resultArea');
         area.innerHTML = '';
 
-        let filteredData = masterData.filter(stock => stock.type === currentHighType);
+        let filteredData = currentStockData.filter(stock => stock.type === currentHighType);
         filteredData.sort((a, b) => b.volNum - a.volNum);
 
         if (filteredData.length === 0) {
@@ -185,7 +191,6 @@
             card.className = 'stock-card';
             const badgeClass = stock.type === '年初来高値' ? 'badge-ytd' : 'badge-ath';
             
-            // ★それぞれのサイトのURLを自動生成（target="_blank" で新しいタブで開くようにしています）
             const kabutanUrl = `https://kabutan.jp/stock/?code=${stock.code}`;
             const minkabuUrl = `https://minkabu.jp/stock/${stock.code}`;
 
@@ -194,7 +199,7 @@
                 <div class="card-top">
                     <div>
                         <span class="badge ${badgeClass}">${stock.type}</span>
-                        <div class="code-name">${stock.code} ${stock.name}</div>
+                        <div class="code-name">${stock.code}</div>
                     </div>
                     <div class="price">¥${stock.price}</div>
                 </div>
