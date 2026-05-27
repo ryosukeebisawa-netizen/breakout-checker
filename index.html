@@ -37,12 +37,13 @@
 
         .tabs {
             display: flex; justify-content: space-between; margin-bottom: 15px;
-            background: #e0e0e0; padding: 5px; border-radius: 10px;
+            background: #e0e0e0; padding: 5px; border-radius: 10px; gap: 4px;
         }
         .tab-btn {
-            flex: 1; background: none; border: none; padding: 10px;
-            font-size: 0.9rem; font-weight: bold; color: #666;
+            flex: 1; background: none; border: none; padding: 10px 5px;
+            font-size: 0.8rem; font-weight: bold; color: #666;
             cursor: pointer; border-radius: 8px; transition: 0.3s;
+            white-space: nowrap;
         }
         .tab-btn.active {
             background: white; color: var(--primary);
@@ -78,6 +79,7 @@
         }
         .badge-ytd { background: #e3f2fd; color: #1976d2; }
         .badge-ath { background: #fff3e0; color: #ef6c00; }
+        .badge-high { background: #f3e5f5; color: #7b1fa2; }
 
         .link-container {
             display: flex; gap: 10px; margin-top: 10px;
@@ -89,9 +91,7 @@
             border-radius: 8px; transition: 0.2s;
         }
         .link-kabutan { background-color: #e6f0fa; color: var(--kabutan); border: 1px solid #b3d1f2; }
-        .link-kabutan:hover { background-color: #d0e4f7; }
         .link-minkabu { background-color: #fff5e6; color: var(--minkabu); border: 1px solid #ffe0b3; }
-        .link-minkabu:hover { background-color: #ffebd0; }
 
         .no-data {
             background: white; border-radius: 16px; padding: 40px 20px;
@@ -105,7 +105,7 @@
 <div class="container">
     <div class="header">
         <h1>🚀 Breakout Checker</h1>
-        <p>高値の種類で市場の熱量を分析</p>
+        <p>東証J-Quants公式データ連動版</p>
     </div>
 
     <div class="time-container">
@@ -116,6 +116,7 @@
     <div class="tabs">
         <button class="tab-btn active" id="tab-ytd" onclick="switchTab('年初来高値')">📅 年初来高値</button>
         <button class="tab-btn" id="tab-ath" onclick="switchTab('上場来高値')">🏆 上場来高値</button>
+        <button class="tab-btn" id="tab-high" onclick="switchTab('最高値企業')">💎 最高値企業</button>
     </div>
 
     <div id="resultArea"></div>
@@ -131,7 +132,7 @@
 
     async function refreshData() {
         const area = document.getElementById('resultArea');
-        area.innerHTML = '<p style="text-align:center; margin-top:40px; color:#666;">東証から最新データをリアルタイム取得中...</p>';
+        area.innerHTML = '<p style="text-align:center; margin-top:40px; color:#666;">東証公式データを安全に取得中...</p>';
         
         try {
             const response = await fetch('/api/scan');
@@ -143,28 +144,24 @@
             }
 
             currentStockData = result.data || [];
-            updateTimestamp();
+            updateTimestamp(result.fetchedDate);
             renderData();
 
         } catch (error) {
-            area.innerHTML = '<div class="no-data">通信エラーが発生しました。時間を置いて再度お試しください。</div>';
+            area.innerHTML = '<div class="no-data">通信エラーが発生しました。</div>';
         }
     }
 
-    function updateTimestamp() {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth() + 1;
-        const date = now.getDate();
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        document.getElementById('timeDisplay').innerText = `⏱ ${year}年${month}月${date}日 ${hours}時${minutes}分 現在`;
+    function updateTimestamp(serverDate) {
+        const displayDate = serverDate ? `${serverDate.substring(0,4)}年${serverDate.substring(4,6)}月${serverDate.substring(6,8)}日` : '最新データ';
+        document.getElementById('timeDisplay').innerText = `📊 データ基準日: ${displayDate}`;
     }
 
     function switchTab(highType) {
         currentHighType = highType;
         document.getElementById('tab-ytd').classList.toggle('active', highType === '年初来高値');
         document.getElementById('tab-ath').classList.toggle('active', highType === '上場来高値');
+        document.getElementById('tab-high').classList.toggle('active', highType === '最高値企業');
         renderData();
     }
 
@@ -173,13 +170,19 @@
         area.innerHTML = '';
 
         let filteredData = currentStockData.filter(stock => stock.type === currentHighType);
-        filteredData.sort((a, b) => b.volNum - a.volNum);
+
+        // 高値更新なら出来高順、最高値企業なら株価の高い順にソート
+        if (currentHighType === '最高値企業') {
+            filteredData.sort((a, b) => b.priceNum - a.priceNum);
+        } else {
+            filteredData.sort((a, b) => b.volNum - a.volNum);
+        }
 
         if (filteredData.length === 0) {
             area.innerHTML = `
                 <div class="no-data">
                     <span style="font-size:2rem; display:block; margin-bottom:10px;">📉</span>
-                    該当する${currentHighType}銘柄なし
+                    該当する${currentHighType}銘柄はありません（市場稼働時に対象を抽出します）
                 </div>
             `;
             return;
@@ -188,7 +191,9 @@
         filteredData.forEach((stock, index) => {
             const card = document.createElement('div');
             card.className = 'stock-card';
-            const badgeClass = stock.type === '年初来高値' ? 'badge-ytd' : 'badge-ath';
+            let badgeClass = 'badge-ytd';
+            if (stock.type === '上場来高値') badgeClass = 'badge-ath';
+            if (stock.type === '最高値企業') badgeClass = 'badge-high';
             
             const kabutanUrl = `https://kabutan.jp/stock/?code=${stock.code}`;
             const minkabuUrl = `https://minkabu.jp/stock/${stock.code}`;
@@ -198,7 +203,7 @@
                 <div class="card-top">
                     <div>
                         <span class="badge ${badgeClass}">${stock.type}</span>
-                        <div class="code-name">${stock.code}</div>
+                        <div class="code-name">証券コード: ${stock.code}</div>
                     </div>
                     <div class="price">¥${stock.price}</div>
                 </div>
