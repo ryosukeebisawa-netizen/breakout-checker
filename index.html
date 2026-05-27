@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>新高値ブレイク・チェッカー (Yahoo!版)</title>
+    <title>新高値ブレイク・プロトレーダー</title>
     <style>
         :root {
             --primary: #1a2a6c;
@@ -64,12 +64,13 @@
         .price { font-size: 1.4rem; font-weight: bold; color: var(--accent); }
         
         .metrics-grid {
-            display: grid; grid-template-columns: 1fr; gap: 12px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
             padding-top: 15px; border-top: 1px solid #eee; margin-bottom: 15px;
         }
         .metric { display: flex; flex-direction: column; }
         .m-label { font-size: 0.75rem; color: #777; margin-bottom: 4px; }
         .m-value { font-size: 1rem; font-weight: bold; color: #333; }
+        .highlight { color: var(--growth); }
         
         .badge {
             display: inline-block; padding: 4px 10px; border-radius: 20px;
@@ -102,7 +103,7 @@
 <div class="container">
     <div class="header">
         <h1>🚀 Breakout Checker</h1>
-        <p>Yahoo!ファイナンス高値ランキング連動</p>
+        <p>リアルタイム新高値・出来高分析</p>
     </div>
 
     <div class="time-container">
@@ -111,8 +112,8 @@
     </div>
 
     <div class="tabs">
-        <button class="tab-btn active" id="tab-ytd" onclick="switchTab('年初来高値')">📅 年初来高値圏</button>
-        <button class="tab-btn" id="tab-ath" onclick="switchTab('上場来高値')">🏆 上場来高値圏</button>
+        <button class="tab-btn active" id="tab-ytd" onclick="switchTab('年初来高値')">📅 年初来高値</button>
+        <button class="tab-btn" id="tab-ath" onclick="switchTab('上場来高値')">🏆 上場来高値</button>
     </div>
 
     <div id="resultArea"></div>
@@ -128,7 +129,7 @@
 
     async function refreshData() {
         const area = document.getElementById('resultArea');
-        area.innerHTML = '<p style="text-align:center; margin-top:40px; color:#666;">Yahoo!ファイナンスからデータを安全に取得中...</p>';
+        area.innerHTML = '<p style="text-align:center; margin-top:40px; color:#666;">市場から本物の新高値銘柄をリアルタイム抽出中...</p>';
         
         try {
             const response = await fetch('/api/scan');
@@ -144,7 +145,7 @@
             renderData();
 
         } catch (error) {
-            area.innerHTML = '<div class="no-data">通信エラーが発生しました。</div>';
+            area.innerHTML = '<div class="no-data">通信エラーが発生しました。時間を置いて再度お試しください。</div>';
         }
     }
 
@@ -169,8 +170,8 @@
         if (filteredData.length === 0) {
             area.innerHTML = `
                 <div class="no-data">
-                    <span style="font-size:2rem; display:block; margin-bottom:10px;">📊</span>
-                    現在、該当する${currentHighType}データはありません
+                    <span style="font-size:2rem; display:block; margin-bottom:10px;">📉</span>
+                    本日の${currentHighType}データはまだ確定していないか、該当がありません。
                 </div>
             `;
             return;
@@ -185,18 +186,26 @@
             const yahooUrl = `https://finance.yahoo.co.jp/quote/${stock.code}.T`;
 
             card.innerHTML = `
-                <div class="rank-badge">注目上位</div>
+                <div class="rank-badge">第 ${index + 1} 位</div>
                 <div class="card-top">
                     <div>
-                        <span class="badge ${badgeClass}">${stock.market || '東証'}</span>
+                        <span class="badge ${badgeClass}">${stock.type}</span>
                         <div class="code-name">${stock.code} ${stock.name}</div>
                     </div>
                     <div class="price">${stock.price}</div>
                 </div>
                 <div class="metrics-grid">
                     <div class="metric">
-                        <span class="m-label">前日比 / 状態</span>
-                        <span class="m-value" style="color:var(--accent);">${stock.change || '高値更新圏内'}</span>
+                        <span class="m-label">出来高変化率</span>
+                        <span class="m-value highlight">${stock.volRatio}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="m-label">直近EPS成長</span>
+                        <span class="m-value" style="color:var(--accent);">${stock.eps}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="m-label">売上高成長</span>
+                        <span class="m-value">${stock.sales}</span>
                     </div>
                 </div>
                 <div class="link-container">
