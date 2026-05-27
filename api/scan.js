@@ -12,7 +12,7 @@ export default async function handler(req, res) {
             body: JSON.stringify({ refreshToken: refreshToken })
         });
         const authData = await authRes.json();
-        const idToken = authData.idtoken;
+        const idToken = authData.idToken;
 
         if (!idToken) {
             return res.status(401).json({ error: "J-Quantsの認証に失敗しました。" });
