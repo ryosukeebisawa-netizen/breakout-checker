@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>新高値ブレイク・プロトレーダー</title>
+    <title>新高値ブレイク・チェッカー (Yahoo!版)</title>
     <style>
         :root {
             --primary: #1a2a6c;
@@ -11,7 +11,7 @@
             --growth: #00c853;
             --bg: #f4f7f6;
             --kabutan: #0066cc;
-            --minkabu: #ff9900;
+            --yahoo: #ff0033;
         }
         body {
             font-family: 'Inter', sans-serif;
@@ -64,13 +64,12 @@
         .price { font-size: 1.4rem; font-weight: bold; color: var(--accent); }
         
         .metrics-grid {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+            display: grid; grid-template-columns: 1fr; gap: 12px;
             padding-top: 15px; border-top: 1px solid #eee; margin-bottom: 15px;
         }
         .metric { display: flex; flex-direction: column; }
         .m-label { font-size: 0.75rem; color: #777; margin-bottom: 4px; }
         .m-value { font-size: 1rem; font-weight: bold; color: #333; }
-        .highlight { color: var(--growth); }
         
         .badge {
             display: inline-block; padding: 4px 10px; border-radius: 20px;
@@ -89,9 +88,7 @@
             border-radius: 8px; transition: 0.2s;
         }
         .link-kabutan { background-color: #e6f0fa; color: var(--kabutan); border: 1px solid #b3d1f2; }
-        .link-kabutan:hover { background-color: #d0e4f7; }
-        .link-minkabu { background-color: #fff5e6; color: var(--minkabu); border: 1px solid #ffe0b3; }
-        .link-minkabu:hover { background-color: #ffebd0; }
+        .link-yahoo { background-color: #ffe6eb; color: var(--yahoo); border: 1px solid #ffb3c1; }
 
         .no-data {
             background: white; border-radius: 16px; padding: 40px 20px;
@@ -105,7 +102,7 @@
 <div class="container">
     <div class="header">
         <h1>🚀 Breakout Checker</h1>
-        <p>高値の種類で市場の熱量を分析</p>
+        <p>Yahoo!ファイナンス高値ランキング連動</p>
     </div>
 
     <div class="time-container">
@@ -114,8 +111,8 @@
     </div>
 
     <div class="tabs">
-        <button class="tab-btn active" id="tab-ytd" onclick="switchTab('年初来高値')">📅 年初来高値</button>
-        <button class="tab-btn" id="tab-ath" onclick="switchTab('上場来高値')">🏆 上場来高値</button>
+        <button class="tab-btn active" id="tab-ytd" onclick="switchTab('年初来高値')">📅 年初来高値圏</button>
+        <button class="tab-btn" id="tab-ath" onclick="switchTab('上場来高値')">🏆 上場来高値圏</button>
     </div>
 
     <div id="resultArea"></div>
@@ -129,10 +126,9 @@
         refreshData();
     };
 
-    // Vercel経由で本物のJ-Quantsデータを呼び出す処理
     async function refreshData() {
         const area = document.getElementById('resultArea');
-        area.innerHTML = '<p style="text-align:center; margin-top:40px; color:#666;">東証から最新データをリアルタイム取得中...</p>';
+        area.innerHTML = '<p style="text-align:center; margin-top:40px; color:#666;">Yahoo!ファイナンスからデータを安全に取得中...</p>';
         
         try {
             const response = await fetch('/api/scan');
@@ -148,18 +144,13 @@
             renderData();
 
         } catch (error) {
-            area.innerHTML = '<div class="no-data">通信エラーが発生しました。時間を置いて再度お試しください。</div>';
+            area.innerHTML = '<div class="no-data">通信エラーが発生しました。</div>';
         }
     }
 
     function updateTimestamp() {
         const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth() + 1;
-        const date = now.getDate();
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        document.getElementById('timeDisplay').innerText = `⏱ ${year}年${month}月${date}日 ${hours}時${minutes}分 現在`;
+        document.getElementById('timeDisplay').innerText = `⏱ ${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${String(now.getHours()).padStart(2, '0')}時${String(now.getMinutes()).padStart(2, '0')}分 現在`;
     }
 
     function switchTab(highType) {
@@ -174,13 +165,12 @@
         area.innerHTML = '';
 
         let filteredData = currentStockData.filter(stock => stock.type === currentHighType);
-        filteredData.sort((a, b) => b.volNum - a.volNum);
 
         if (filteredData.length === 0) {
             area.innerHTML = `
                 <div class="no-data">
-                    <span style="font-size:2rem; display:block; margin-bottom:10px;">📉</span>
-                    該当する${currentHighType}銘柄なし
+                    <span style="font-size:2rem; display:block; margin-bottom:10px;">📊</span>
+                    現在、該当する${currentHighType}データはありません
                 </div>
             `;
             return;
@@ -192,34 +182,26 @@
             const badgeClass = stock.type === '年初来高値' ? 'badge-ytd' : 'badge-ath';
             
             const kabutanUrl = `https://kabutan.jp/stock/?code=${stock.code}`;
-            const minkabuUrl = `https://minkabu.jp/stock/${stock.code}`;
+            const yahooUrl = `https://finance.yahoo.co.jp/quote/${stock.code}.T`;
 
             card.innerHTML = `
-                <div class="rank-badge">第 ${index + 1} 位</div>
+                <div class="rank-badge">注目上位</div>
                 <div class="card-top">
                     <div>
-                        <span class="badge ${badgeClass}">${stock.type}</span>
-                        <div class="code-name">${stock.code}</div>
+                        <span class="badge ${badgeClass}">${stock.market || '東証'}</span>
+                        <div class="code-name">${stock.code} ${stock.name}</div>
                     </div>
-                    <div class="price">¥${stock.price}</div>
+                    <div class="price">${stock.price}</div>
                 </div>
                 <div class="metrics-grid">
                     <div class="metric">
-                        <span class="m-label">出来高変化率</span>
-                        <span class="m-value highlight">${stock.volRatio}</span>
-                    </div>
-                    <div class="metric">
-                        <span class="m-label">直近EPS成長</span>
-                        <span class="m-value">${stock.eps}</span>
-                    </div>
-                    <div class="metric">
-                        <span class="m-label">売上高成長</span>
-                        <span class="m-value">${stock.sales}</span>
+                        <span class="m-label">前日比 / 状態</span>
+                        <span class="m-value" style="color:var(--accent);">${stock.change || '高値更新圏内'}</span>
                     </div>
                 </div>
                 <div class="link-container">
                     <a href="${kabutanUrl}" target="_blank" class="source-link link-kabutan">📊 株探</a>
-                    <a href="${minkabuUrl}" target="_blank" class="source-link link-minkabu">👥 みん株</a>
+                    <a href="${yahooUrl}" target="_blank" class="source-link link-yahoo">🔴 Yahoo!</a>
                 </div>
             `;
             area.appendChild(card);
